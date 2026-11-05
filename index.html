@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LEGO HEAD TILT: CABARAN INTEGRITI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <!-- Pustaka MediaPipe Face Mesh AI -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <style>
+    body {
+      font-family: 'Fredoka', cursive, sans-serif;
+      background: #DCE8F5;
+      background-image: radial-gradient(#B3CEE8 18%, transparent 20%);
+      background-size: 26px 26px;
+      user-select: none;
+    }
+    .font-num { font-family: 'Nunito', sans-serif; }
+
+    /* LEGO 3D Studs & Blocks Styles */
+    .lego-panel {
+      border: 4px solid #0F172A;
+      box-shadow: 6px 6px 0px #0F172A;
+    }
+    .lego-studs-row {
+      display: flex;
+      justify-content: space-around;
+      position: absolute;
+      top: -10px;
+      left: 12px;
+      right: 12px;
+      height: 10px;
+      pointer-events: none;
+    }
+    .stud-cap {
+      width: 22px;
+      height: 10px;
+      border-radius: 4px 4px 0 0;
+      border: 2px solid #0F172A;
+      border-bottom: none;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,0.4);
+    }
+    .lego-3d-box {
+      position: relative;
+      border: 4px solid #0F172A;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .lego-3d-green {
+      background: linear-gradient(180deg, #10B981 0%, #00852B 100%);
+      box-shadow: 0 12px 0 #004D19, 0 16px 0 #0F172A, 0 18px 20px rgba(0,0,0,0.25);
+    }
+    .lego-3d-green.active-choice {
+      transform: translateY(6px);
+      box-shadow: 0 6px 0 #004D19, 0 8px 0 #0F172A, 0 10px 15px rgba(0,133,43,0.4);
+      border-color: #FFFFFF;
+    }
+    .lego-3d-red {
+      background: linear-gradient(180deg, #EF4444 0%, #E52521 100%);
+      box-shadow: 0 12px 0 #991310, 0 16px 0 #0F172A, 0 18px 20px rgba(0,0,0,0.25);
+    }
+    .lego-3d-red.active-choice {
+      transform: translateY(6px);
+      box-shadow: 0 6px 0 #991310, 0 8px 0 #0F172A, 0 10px 15px rgba(229,37,33,0.4);
+      border-color: #FFFFFF;
+    }
+    
+    @keyframes waveArm {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(-24deg); }
+    }
+    .animate-wave {
+      transform-origin: 150px 130px;
+      animation: waveArm 1.4s ease-in-out infinite;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.85); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop { animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-2 md:p-4 text-slate-800">
+
+  <!-- ================= CONTAINER UTAMA ================= -->
+  <div class="w-full max-w-5xl bg-white rounded-3xl lego-panel p-3 md:p-6 relative flex flex-col min-h-[660px]">
+    
+    <!-- BARIS STUD LEGO DI ATAS KONTENA UTAMA -->
+    <div class="lego-studs-row">
+      <div class="stud-cap bg-[#0055BF]"></div>
+      <div class="stud-cap bg-[#FFD700]"></div>
+      <div class="stud-cap bg-[#E52521]"></div>
+      <div class="stud-cap bg-[#00852B]"></div>
+      <div class="stud-cap bg-[#0055BF]"></div>
+      <div class="stud-cap bg-[#FFD700]"></div>
+      <div class="stud-cap bg-[#E52521]"></div>
+      <div class="stud-cap bg-[#00852B]"></div>
+    </div>
+
+    <!-- HEADER / BAR STATUS -->
+    <header class="flex flex-wrap items-center justify-between gap-3 border-b-4 border-slate-100 pb-3 mb-3">
+      <div class="flex items-center gap-3">
+        <div class="flex gap-1 p-1 bg-slate-100 rounded-lg border-2 border-slate-900">
+          <span class="w-5 h-5 rounded bg-[#E52521] border-2 border-slate-900"></span>
+          <span class="w-5 h-5 rounded bg-[#FFD700] border-2 border-slate-900"></span>
+          <span class="w-5 h-5 rounded bg-[#0055BF] border-2 border-slate-900"></span>
+          <span class="w-5 h-5 rounded bg-[#00852B] border-2 border-slate-900"></span>
+        </div>
+        <div>
+          <h1 class="text-xl md:text-2xl font-black text-[#0055BF] leading-none">
+            LEGO <span class="text-[#E52521]">HEAD TILT</span>
+          </h1>
+          <p class="text-[11px] font-bold text-slate-500">Cabaran Integriti • Hab Pembelajaran LEGORITI</p>
+        </div>
+      </div>
+
+      <!-- Indikator Kemajuan, Markah & Audio -->
+      <div class="flex items-center gap-2">
+        <div class="bg-blue-50 border-2 border-[#0055BF] px-3 py-1 rounded-xl text-xs font-black text-[#0055BF]">
+          Soalan: <span id="soalanPill" class="font-num text-sm text-[#E52521]">1</span> / 5
+        </div>
+        <div class="bg-amber-50 border-2 border-amber-500 px-3 py-1 rounded-xl text-xs font-black text-amber-900">
+          Markah: <span id="markahPill" class="font-num text-sm text-[#00852B]">0</span> / 100
+        </div>
+        <button onclick="toggleAudio()" id="btnAudio" class="p-2 rounded-xl border-2 border-slate-900 bg-slate-100 hover:bg-slate-200 text-sm font-black" title="Bunyi & Muzik">
+          🔊
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= SKRIN 1: PAPARAN PERMULAAN ================= -->
+    <section id="skrinMula" class="flex-1 flex flex-col items-center justify-center text-center p-4 space-y-5 animate-pop">
+      <div class="relative">
+        <span class="bg-[#FFD700] text-slate-900 text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider border-2 border-slate-900 shadow-[2px_2px_0px_#0F172A] inline-block mb-2">
+          Kamera Interaktif • MediaPipe AI
+        </span>
+        <h2 class="text-3xl md:text-5xl font-black text-slate-900 leading-tight">
+          LEGO <span class="text-[#0055BF]">HEAD TILT</span>: CABARAN INTEGRITI
+        </h2>
+        <p class="text-sm md:text-base font-bold text-slate-600 max-w-xl mx-auto mt-2 leading-relaxed">
+          Gunakan pergerakan kepala anda di hadapan kamera untuk memilih jawapan kuiz integriti!
+        </p>
+      </div>
+
+      <!-- Ilustrasi 3D Guru Najiha & Arahan -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center max-w-2xl w-full bg-slate-50 border-4 border-slate-900 rounded-3xl p-4 shadow-[4px_4px_0px_#0F172A]">
+        
+        <!-- Minifigure Guru Najiha -->
+        <div class="md:col-span-5 flex flex-col items-center">
+          <svg class="w-36 h-48 filter drop-shadow-md" viewBox="0 0 220 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="110" cy="270" rx="55" ry="7" fill="#CBD5E1"/>
+            <path d="M75 210H145V225H75V210Z" fill="#002D66" stroke="#0F172A" stroke-width="3"/>
+            <rect x="75" y="225" width="32" height="40" rx="3" fill="#003882" stroke="#0F172A" stroke-width="3"/>
+            <rect x="72" y="260" width="38" height="10" rx="3" fill="#00224D" stroke="#0F172A" stroke-width="3"/>
+            <rect x="113" y="225" width="32" height="40" rx="3" fill="#003882" stroke="#0F172A" stroke-width="3"/>
+            <rect x="110" y="260" width="38" height="10" rx="3" fill="#00224D" stroke="#0F172A" stroke-width="3"/>
+            <path d="M68 120L78 210H142L152 120H68Z" fill="#0055BF" stroke="#0F172A" stroke-width="3"/>
+            <circle cx="110" cy="165" r="2.5" fill="#FFD700"/>
+            <circle cx="110" cy="185" r="2.5" fill="#FFD700"/>
+            <!-- Nametag NAJIHA -->
+            <rect x="80" y="148" width="30" height="11" rx="2" fill="#0F172A" stroke="#FFFFFF" stroke-width="1"/>
+            <text x="83" y="156.5" fill="#FFFFFF" font-family="'Nunito', sans-serif" font-weight="900" font-size="6">NAJIHA</text>
+            <!-- Tangan Kanan Mesra -->
+            <path d="M68 126L50 165L62 172L76 138" fill="#004299" stroke="#0F172A" stroke-width="3"/>
+            <circle cx="49" cy="173" r="5" fill="#FFD700"/>
+            <!-- Tangan Kiri Melambai -->
+            <g class="animate-wave">
+              <path d="M150 126L176 100L186 110L156 142" fill="#004299" stroke="#0F172A" stroke-width="3"/>
+              <circle cx="184" cy="100" r="7" fill="#FFD700" stroke="#0F172A" stroke-width="3"/>
+            </g>
+            <!-- Kepala & Tudung Biru Kemas -->
+            <path d="M84 66C84 46 136 46 136 66C142 75 142 98 138 108C132 120 128 135 128 140H92C92 135 88 120 82 108C78 98 78 75 84 66Z" fill="#0055BF" stroke="#0F172A" stroke-width="3"/>
+            <rect x="90" y="60" width="40" height="42" rx="14" fill="#FFD700" stroke="#0F172A" stroke-width="3"/>
+            <rect x="94" y="74" width="13" height="10" rx="3" fill="#E0F2FE" stroke="#0F172A" stroke-width="2"/>
+            <rect x="113" y="74" width="13" height="10" rx="3" fill="#E0F2FE" stroke="#0F172A" stroke-width="2"/>
+            <path d="M107 78H113" stroke="#0F172A" stroke-width="2"/>
+            <circle cx="100" cy="79" r="2.5" fill="#0F172A"/>
+            <circle cx="119" cy="79" r="2.5" fill="#0F172A"/>
+            <path d="M104 88C106 93 114 93 116 88" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+            <path d="M85 106C85 125 90 144 110 146C130 144 135 125 135 106C130 114 122 118 110 118C98 118 90 114 85 106Z" fill="#004299" stroke="#0F172A" stroke-width="2.5"/>
+          </svg>
+          <span class="text-xs font-black text-[#0055BF]">Guru Najiha</span>
+        </div>
+
+        <!-- Panduan Kawalan Kepala -->
+        <div class="md:col-span-7 text-left space-y-3">
+          <p class="text-xs font-black text-slate-800 uppercase tracking-wide">Cara Mengawal:</p>
+          <div class="flex items-center gap-3 bg-red-100 p-2.5 rounded-2xl border-2 border-red-400">
+            <span class="text-2xl">👈</span>
+            <div>
+              <p class="text-xs font-black text-red-900 leading-tight">CONDONG KEPALA KE KIRI</p>
+              <p class="text-[11px] font-bold text-red-700">Untuk memilih: <span class="uppercase font-black">TIDAK SETUJU</span></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 bg-green-100 p-2.5 rounded-2xl border-2 border-green-400">
+            <span class="text-2xl">👉</span>
+            <div>
+              <p class="text-xs font-black text-green-900 leading-tight">CONDONG KEPALA KE KANAN</p>
+              <p class="text-[11px] font-bold text-green-700">Untuk memilih: <span class="uppercase font-black">SETUJU</span></p>
+            </div>
+          </div>
+          <p class="text-[11px] font-bold text-slate-500 italic">
+            *Kekalkan kedudukan kepala kira-kira 0.8 saat untuk mengesahkan jawapan anda.
+          </p>
+        </div>
+      </div>
+
+      <!-- Butang Mula & Kamera -->
+      <div class="flex flex-wrap gap-3 justify-center pt-2">
+        <button onclick="mulakanPermainanDenganKamera()" class="px-6 py-3.5 rounded-2xl bg-[#00852B] hover:brightness-110 text-white font-black text-sm md:text-base border-4 border-slate-900 shadow-[4px_4px_0px_#0F172A] flex items-center gap-2">
+          <span>📷</span> AKTIFKAN KAMERA & MULA PERMAINAN
+        </button>
+        <button onclick="mulakanPermainanManual()" class="px-5 py-3.5 rounded-2xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-xs md:text-sm border-2 border-slate-900 shadow-[2px_2px_0px_#0F172A] flex items-center gap-2">
+          <span>🖱️</span> Mod Butang (Tanpa Kamera)
+        </button>
+      </div>
+      <p id="kameraStatusTxt" class="text-xs font-bold text-slate-500 mt-1"></p>
+    </section>
+
+    <!-- ================= SKRIN 2: ARENA PERMAINAN (KAMERA & SOALAN) ================= -->
+    <section id="skrinPermainan" class="hidden flex-1 flex flex-col space-y-4">
+      
+      <!-- PERNYATAAN KUIZ AKTIF -->
+      <div class="bg-blue-50 border-4 border-[#0055BF] rounded-2xl p-4 md:p-5 text-center relative lego-panel">
+        <span class="bg-[#0055BF] text-white text-[10px] font-black px-3 py-0.5 rounded-full uppercase tracking-wider mb-2 inline-block">
+          Pernyataan Soalan <span id="soalanNoDisplay" class="font-num">1</span>
+        </span>
+        <h3 id="teksPernyataan" class="text-base md:text-xl font-black text-slate-900 leading-snug max-w-3xl mx-auto">
+          Menyalin hasil penulisan orang lain tanpa menyatakan sumber merupakan plagiarisme.
+        </h3>
+      </div>
+
+      <!-- KAWASAN INTERAKSI KEPALA & KAMERA (3-KOLUM: KIRI / KAMERA / KANAN) -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center flex-1">
+        
+        <!-- BLOK LEGO MERAH: TIDAK SETUJU (KEPALA CONDONG KIRI) -->
+        <div id="blokTidakSetuju" onclick="pilihJawapanManual(false)" class="md:col-span-4 h-52 md:h-64 rounded-3xl lego-3d-box lego-3d-red p-4 flex flex-col justify-between items-center text-white cursor-pointer select-none relative overflow-hidden">
+          <div class="flex justify-around w-full opacity-90">
+            <span class="w-8 h-4 rounded-full bg-red-400 border-2 border-slate-900 shadow-[inset_0_2px_0_#ffffff]"></span>
+            <span class="w-8 h-4 rounded-full bg-red-400 border-2 border-slate-900 shadow-[inset_0_2px_0_#ffffff]"></span>
+          </div>
+
+          <div class="text-center my-auto">
+            <span class="text-4xl md:text-5xl drop-shadow-md">👈 ❌</span>
+            <h4 class="text-xl md:text-2xl font-black tracking-wider uppercase mt-2 drop-shadow">TIDAK SETUJU</h4>
+            <p class="text-[11px] font-bold text-red-100 uppercase tracking-wide">Condong Kepala Kiri</p>
+          </div>
+
+          <!-- Progress Dwell Bar Kiri -->
+          <div class="w-full bg-red-950/40 rounded-full h-3 border-2 border-white/50 overflow-hidden">
+            <div id="progKiri" class="bg-white h-full w-0 transition-all duration-75"></div>
+          </div>
+        </div>
+
+        <!-- PRATONTON KAMERA AI & PANDUAN GURU NAJIHA DI TENGAH -->
+        <div class="md:col-span-4 flex flex-col items-center justify-center relative">
+          <div class="w-48 h-48 md:w-56 md:h-56 rounded-3xl border-4 border-slate-900 overflow-hidden relative shadow-lg bg-slate-900 flex items-center justify-center">
+            
+            <video id="webcamVideo" autoplay playsinline muted class="w-full h-full object-cover -scale-x-100"></video>
+            <canvas id="faceCanvas" class="absolute inset-0 w-full h-full pointer-events-none -scale-x-100"></canvas>
+
+            <div id="retikelFace" class="absolute inset-4 border-2 border-dashed border-yellow-300 rounded-full pointer-events-none opacity-60 flex items-center justify-center">
+              <span id="retikelTxt" class="text-[10px] font-black text-yellow-200 bg-slate-900/60 px-2 py-0.5 rounded">Tengah</span>
+            </div>
+
+            <div id="statusKameraArah" class="absolute bottom-2 bg-slate-900/90 text-white text-[11px] font-black px-3 py-1 rounded-full border border-white/40">
+              Muka di Tengah
+            </div>
+
+            <div id="fallbackNoCam" class="hidden absolute inset-0 bg-slate-800 text-white flex-col items-center justify-center p-3 text-center">
+              <span class="text-3xl mb-1">🎮</span>
+              <p class="text-xs font-black">Mod Butang Manual</p>
+              <p class="text-[10px] text-slate-300 mt-1">Klik blok Hijau atau Merah untuk menjawab.</p>
+            </div>
+          </div>
+
+          <div class="mt-2 bg-[#FFD700] text-slate-900 border-2 border-slate-900 px-3 py-1 rounded-xl text-center text-[11px] font-black shadow-[2px_2px_0px_#0F172A] max-w-xs">
+            "Condongkan kepala anda ke blok pilihan & tahan seketika!" 👩‍🏫
+          </div>
+        </div>
+
+        <!-- BLOK LEGO HIJAU: SETUJU (KEPALA CONDONG KANAN) -->
+        <div id="blokSetuju" onclick="pilihJawapanManual(true)" class="md:col-span-4 h-52 md:h-64 rounded-3xl lego-3d-box lego-3d-green p-4 flex flex-col justify-between items-center text-white cursor-pointer select-none relative overflow-hidden">
+          <div class="flex justify-around w-full opacity-90">
+            <span class="w-8 h-4 rounded-full bg-emerald-300 border-2 border-slate-900 shadow-[inset_0_2px_0_#ffffff]"></span>
+            <span class="w-8 h-4 rounded-full bg-emerald-300 border-2 border-slate-900 shadow-[inset_0_2px_0_#ffffff]"></span>
+          </div>
+
+          <div class="text-center my-auto">
+            <span class="text-4xl md:text-5xl drop-shadow-md">✅ 👉</span>
+            <h4 class="text-xl md:text-2xl font-black tracking-wider uppercase mt-2 drop-shadow">SETUJU</h4>
+            <p class="text-[11px] font-bold text-emerald-100 uppercase tracking-wide">Condong Kepala Kanan</p>
+          </div>
+
+          <!-- Progress Dwell Bar Kanan -->
+          <div class="w-full bg-green-950/40 rounded-full h-3 border-2 border-white/50 overflow-hidden">
+            <div id="progKanan" class="bg-white h-full w-0 transition-all duration-75"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- KAWASAN KAWALAN ALTERNATIF SENTUH/KLIK -->
+      <div class="flex justify-center gap-3 pt-1">
+        <button onclick="pilihJawapanManual(false)" class="px-4 py-2 rounded-xl bg-red-100 hover:bg-red-200 border-2 border-red-600 text-red-900 font-black text-xs flex items-center gap-1 shadow-sm">
+          <span>👈</span> Klik Tidak Setuju
+        </button>
+        <button onclick="pilihJawapanManual(true)" class="px-4 py-2 rounded-xl bg-green-100 hover:bg-green-200 border-2 border-green-600 text-green-900 font-black text-xs flex items-center gap-1 shadow-sm">
+          <span>👉</span> Klik Setuju
+        </button>
+      </div>
+    </section>
+
+    <!-- ================= MODAL MAKLUM BALAS & PENERANGAN GURU NAJIHA ================= -->
+    <div id="modalMaklumBalas" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
+      <div class="bg-white rounded-3xl max-w-lg w-full p-6 border-4 border-slate-900 shadow-2xl relative animate-pop text-center">
+        
+        <div id="mbLencana" class="w-20 h-20 rounded-full border-4 border-slate-900 mx-auto -mt-14 flex items-center justify-center text-4xl shadow-md bg-white">
+          🎉
+        </div>
+
+        <h3 id="mbTajuk" class="text-2xl font-black mt-3 uppercase tracking-wide">BETUL!</h3>
+        <p id="mbStatusJawapan" class="text-xs font-bold text-slate-500 uppercase mt-0.5">Jawapan Tepat: SETUJU</p>
+
+        <div class="bg-blue-50 border-2 border-[#0055BF] rounded-2xl p-4 my-4 text-left flex items-start gap-3">
+          <div class="w-12 h-12 rounded-xl bg-white border-2 border-[#0055BF] flex items-center justify-center shrink-0">
+            <span class="text-2xl">👩‍🏫</span>
+          </div>
+          <div>
+            <p class="text-[11px] font-black text-[#0055BF] uppercase">Penerangan Guru Najiha:</p>
+            <p id="mbPenerangan" class="text-xs font-bold text-slate-700 leading-relaxed mt-1">
+              Menyalin hasil penulisan orang lain secara terus tanpa memberi kredit merupakan bentuk plagiarisme langsung.
+            </p>
+          </div>
+        </div>
+
+        <button onclick="soalanSeterusnya()" class="w-full py-3.5 rounded-2xl bg-[#0055BF] hover:bg-blue-700 text-white font-black text-sm uppercase tracking-wider border-3 border-slate-900 shadow-[3px_3px_0px_#0F172A]">
+          SOALAN SETERUSNYA ➔
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= SKRIN 3: KEPUTUSAN AKHIR & KEMENANGAN ================= -->
+    <section id="skrinKeputusan" class="hidden flex-1 flex flex-col items-center justify-center text-center p-4 space-y-4 animate-pop">
+      <div class="w-24 h-24 rounded-full bg-[#FFD700] border-4 border-slate-900 flex items-center justify-center text-5xl shadow-[4px_4px_0px_#0F172A] mb-1">
+        🏆
+      </div>
+
+      <div class="space-y-1">
+        <h2 class="text-2xl md:text-4xl font-black text-[#0055BF]">
+          TAHNIAH! ANDA TELAH MENYELESAIKAN CABARAN INTEGRITI!
+        </h2>
+        <p class="text-base font-black text-[#E52521] uppercase tracking-wide">
+          “Bina Ilmu, Pegang Integriti!”
+        </p>
+      </div>
+
+      <div class="bg-slate-50 border-4 border-slate-900 rounded-3xl p-5 max-w-md w-full shadow-[4px_4px_0px_#0F172A]">
+        <div class="grid grid-cols-3 gap-2 border-b-2 border-slate-200 pb-3 mb-3 text-center">
+          <div>
+            <p class="text-[10px] font-black text-slate-500 uppercase">Jumlah Markah</p>
+            <p id="keputusanMarkah" class="text-2xl md:text-3xl font-black text-[#00852B] font-num">100</p>
+          </div>
+          <div>
+            <p class="text-[10px] font-black text-slate-500 uppercase">Betul</p>
+            <p id="keputusanBetul" class="text-2xl md:text-3xl font-black text-blue-600 font-num">5</p>
+          </div>
+          <div>
+            <p class="text-[10px] font-black text-slate-500 uppercase">Salah</p>
+            <p id="keputusanSalah" class="text-2xl md:text-3xl font-black text-red-500 font-num">0</p>
+          </div>
+        </div>
+
+        <div class="bg-amber-100 border-2 border-amber-400 rounded-2xl p-3">
+          <p class="text-xs font-bold text-amber-900">Tahap Pencapaian Integriti:</p>
+          <p id="keputusanTahap" class="text-base font-black text-amber-950 mt-0.5">🌟 PEJUANG INTEGRITI CEMERLANG 🌟</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-3 justify-center pt-2">
+        <button onclick="mainSemula()" class="px-6 py-3 rounded-2xl bg-[#00852B] hover:brightness-110 text-white font-black text-xs md:text-sm border-3 border-slate-900 shadow-[3px_3px_0px_#0F172A] flex items-center gap-1.5">
+          <span>🔄</span> MAIN SEMULA
+        </button>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ================= LOGIK SISTEM JAVASCRIPT ================= -->
+  <script>
+    const SENARAI_SOALAN = [
+      {
+        id: 1,
+        teks: "Menyalin hasil penulisan orang lain tanpa menyatakan sumber merupakan plagiarisme.",
+        jawapan: true,
+        penerangan: "Tepat sekali! Mengambil tulisan atau karya orang lain secara langsung tanpa menyatakan sumber merupakan plagiarisme langsung."
+      },
+      {
+        id: 2,
+        teks: "Menggunakan idea orang lain tanpa memberikan pengiktirafan tidak menjadi kesalahan.",
+        jawapan: false,
+        penerangan: "Salah! Mengambil idea atau buah fikiran orang lain tanpa kredit adalah salah satu bentuk plagiarisme sumber dan melanggar integriti."
+      },
+      {
+        id: 3,
+        teks: "Menyatakan sumber rujukan dapat membantu mengelakkan plagiarisme.",
+        jawapan: true,
+        penerangan: "Betul! Menulis sumber rujukan dan bibliografi membuktikan ketelusan serta menghargai karya penulis asal."
+      },
+      {
+        id: 4,
+        teks: "Mengubah beberapa perkataan dalam ayat orang lain tanpa menyatakan sumber masih boleh dianggap plagiarisme.",
+        jawapan: true,
+        penerangan: "Tepat! Ini dinamakan plagiarisme parafrasa. Mengubah perkataan sahaja tanpa menyebut sumber asal tetap dikira meniru."
+      },
+      {
+        id: 5,
+        teks: "Semua maklumat yang diperoleh daripada Internet boleh digunakan tanpa menyatakan sumber.",
+        jawapan: false,
+        penerangan: "Salah! Walaupun maklumat di Internet mudah diakses, kita tetap wajib menyertakan rujukan atau pautan sumber yang digunakan."
+      }
+    ];
+
+    let indeksSoalan = 0;
+    let markah = 0;
+    let jumlahBetul = 0;
+    let jumlahSalah = 0;
+    let audioAktif = true;
+    let modKamera = false;
+
+    let cameraInstance = null;
+    let faceMesh = null;
+    let statusPilihanSemasa = null;
+    let masaMulaPegang = null;
+    const TEMPOH_PENGESAHAN_MS = 750; 
+    let sedangMemprosesJawapan = false;
+
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function mainkanBunyi(jenis) {
+      if (!audioAktif) return;
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (jenis === 'tilt') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(660, now + 0.12);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        } else if (jenis === 'betul') {
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.type = 'triangle';
+            o.frequency.setValueAtTime(freq, now + i * 0.08);
+            g.gain.setValueAtTime(0.12, now + i * 0.08);
+            g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.2);
+            o.start(now + i * 0.08);
+            o.stop(now + i * 0.08 + 0.2);
+          });
+        } else if (jenis === 'salah') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(220, now + 0.25);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        } else if (jenis === 'klik') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(580, now);
+          gain.gain.setValueAtTime(0.05, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+          osc.start(now);
+          osc.stop(now + 0.05);
+        }
+      } catch (e) {
+        console.log("Audio Web tidak aktif");
+      }
+    }
+
+    function toggleAudio() {
+      audioAktif = !audioAktif;
+      document.getElementById('btnAudio').innerText = audioAktif ? '🔊' : '🔇';
+    }
+
+    function resetDataPermainan() {
+      indeksSoalan = 0;
+      markah = 0;
+      jumlahBetul = 0;
+      jumlahSalah = 0;
+      sedangMemprosesJawapan = false;
+      kemasKiniBarStatus();
+    }
+
+    function muatSoalan() {
+      const q = SENARAI_SOALAN[indeksSoalan];
+      document.getElementById('teksPernyataan').innerText = q.teks;
+      document.getElementById('soalanNoDisplay').innerText = indeksSoalan + 1;
+      document.getElementById('soalanPill').innerText = indeksSoalan + 1;
+      statusPilihanSemasa = null;
+      masaMulaPegang = null;
+      sedangMemprosesJawapan = false;
+      kemasKiniPilihanKepala(null);
+    }
+
+    function kemasKiniBarStatus() {
+      document.getElementById('markahPill').innerText = markah;
+    }
+
+    function mulakanPermainanManual() {
+      modKamera = false;
+      document.getElementById('fallbackNoCam').classList.remove('hidden');
+      document.getElementById('skrinMula').classList.add('hidden');
+      document.getElementById('skrinPermainan').classList.remove('hidden');
+      resetDataPermainan();
+      muatSoalan();
+    }
+
+    async function mulakanPermainanDenganKamera() {
+      const statusTxt = document.getElementById('kameraStatusTxt');
+      statusTxt.innerText = "Mengaktifkan kamera & model MediaPipe AI...";
+
+      try {
+        const videoElement = document.getElementById('webcamVideo');
+        
+        faceMesh = new FaceMesh({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+        });
+
+        faceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+
+        faceMesh.onResults(onFaceResults);
+
+        cameraInstance = new Camera(videoElement, {
+          onFrame: async () => {
+            if (modKamera && !sedangMemprosesJawapan) {
+              await faceMesh.send({ image: videoElement });
+            }
+          },
+          width: 320,
+          height: 240
+        });
+
+        await cameraInstance.start();
+
+        modKamera = true;
+        document.getElementById('fallbackNoCam').classList.add('hidden');
+        document.getElementById('skrinMula').classList.add('hidden');
+        document.getElementById('skrinPermainan').classList.remove('hidden');
+        resetDataPermainan();
+        muatSoalan();
+      } catch (err) {
+        console.error(err);
+        statusTxt.innerText = "Akses kamera gagal/disekat. Buka dalam Mod Butang.";
+        alert("Kamera tidak dapat diakses atau disekat oleh browser. Permainan diteruskan dalam Mod Butang.");
+        mulakanPermainanManual();
+      }
+    }
+
+    function onFaceResults(results) {
+      if (sedangMemprosesJawapan) return;
+
+      const retikelTxt = document.getElementById('retikelTxt');
+      const statusKameraArah = document.getElementById('statusKameraArah');
+
+      if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        retikelTxt.innerText = "Cari Wajah...";
+        statusKameraArah.innerText = "Wajah tidak dikesan";
+        kemasKiniPilihanKepala(null);
+        return;
+      }
+
+      const landmarks = results.multiFaceLandmarks[0];
+
+      const leftEye = landmarks[33];
+      const rightEye = landmarks[263];
+
+      const dX = rightEye.x - leftEye.x;
+      const dY = rightEye.y - leftEye.y;
+      
+      const rad = Math.atan2(dY, dX);
+      const deg = rad * (180 / Math.PI);
+
+      const AMBANG_CONDONG = 6.5;
+
+      if (deg < -AMBANG_CONDONG) {
+        retikelTxt.innerText = "Condong Kanan ➔";
+        statusKameraArah.innerText = "👉 CONDONG KANAN: SETUJU";
+        kemasKiniPilihanKepala('KANAN');
+      } else if (deg > AMBANG_CONDONG) {
+        retikelTxt.innerText = "⬅️ Condong Kiri";
+        statusKameraArah.innerText = "👈 CONDONG KIRI: TIDAK SETUJU";
+        kemasKiniPilihanKepala('KIRI');
+      } else {
+        retikelTxt.innerText = "Tengah (Neutral)";
+        statusKameraArah.innerText = "Muka di Tengah";
+        kemasKiniPilihanKepala(null);
+      }
+    }
+
+    function kemasKiniPilihanKepala(arah) {
+      const blokSetuju = document.getElementById('blokSetuju');
+      const blokTidakSetuju = document.getElementById('blokTidakSetuju');
+      const progKanan = document.getElementById('progKanan');
+      const progKiri = document.getElementById('progKiri');
+
+      if (arah !== statusPilihanSemasa) {
+        statusPilihanSemasa = arah;
+        masaMulaPegang = arah ? Date.now() : null;
+        if (arah) mainkanBunyi('tilt');
+      }
+
+      blokSetuju.classList.remove('active-choice');
+      blokTidakSetuju.classList.remove('active-choice');
+      progKanan.style.width = '0%';
+      progKiri.style.width = '0%';
+
+      if (statusPilihanSemasa && masaMulaPegang && !sedangMemprosesJawapan) {
+        const masaBerlalu = Date.now() - masaMulaPegang;
+        const peratus = Math.min(100, (masaBerlalu / TEMPOH_PENGESAHAN_MS) * 100);
+
+        if (statusPilihanSemasa === 'KANAN') {
+          blokSetuju.classList.add('active-choice');
+          progKanan.style.width = peratus + '%';
+        } else if (statusPilihanSemasa === 'KIRI') {
+          blokTidakSetuju.classList.add('active-choice');
+          progKiri.style.width = peratus + '%';
+        }
+
+        if (masaBerlalu >= TEMPOH_PENGESAHAN_MS) {
+          sedangMemprosesJawapan = true;
+          const jawapanPemain = (statusPilihanSemasa === 'KANAN');
+          semakJawapan(jawapanPemain);
+        }
+      }
+    }
+
+    function pilihJawapanManual(jawapanPemain) {
+      if (sedangMemprosesJawapan) return;
+      mainkanBunyi('klik');
+      sedangMemprosesJawapan = true;
+      semakJawapan(jawapanPemain);
+    }
+
+    function semakJawapan(jawapanPemain) {
+      const q = SENARAI_SOALAN[indeksSoalan];
+      const betul = (jawapanPemain === q.jawapan);
+
+      const mbLencana = document.getElementById('mbLencana');
+      const mbTajuk = document.getElementById('mbTajuk');
+      const mbStatusJawapan = document.getElementById('mbStatusJawapan');
+      const mbPenerangan = document.getElementById('mbPenerangan');
+
+      if (betul) {
+        markah += 20;
+        jumlahBetul++;
+        mainkanBunyi('betul');
+        mbLencana.innerText = "🎉";
+        mbTajuk.innerText = "TAHNIAH! BETUL";
+        mbTajuk.className = "text-2xl font-black mt-3 uppercase tracking-wide text-[#00852B]";
+      } else {
+        jumlahSalah++;
+        mainkanBunyi('salah');
+        mbLencana.innerText = "💡";
+        mbTajuk.innerText = "KURANG TEPAT";
+        mbTajuk.className = "text-2xl font-black mt-3 uppercase tracking-wide text-[#E52521]";
+      }
+
+      mbStatusJawapan.innerText = `Jawapan Tepat: ${q.jawapan ? 'SETUJU' : 'TIDAK SETUJU'}`;
+      mbPenerangan.innerText = q.penerangan;
+
+      kemasKiniBarStatus();
+      document.getElementById('modalMaklumBalas').classList.remove('hidden');
+    }
+
+    function soalanSeterusnya() {
+      document.getElementById('modalMaklumBalas').classList.add('hidden');
+      indeksSoalan++;
+
+      if (indeksSoalan < SENARAI_SOALAN.length) {
+        muatSoalan();
+      } else {
+        paparKeputusanAkhir();
+      }
+    }
+
+    function paparKeputusanAkhir() {
+      document.getElementById('skrinPermainan').classList.add('hidden');
+      document.getElementById('skrinKeputusan').classList.remove('hidden');
+
+      document.getElementById('keputusanMarkah').innerText = markah;
+      document.getElementById('keputusanBetul').innerText = jumlahBetul;
+      document.getElementById('keputusanSalah').innerText = jumlahSalah;
+
+      const txtTahap = document.getElementById('keputusanTahap');
+      if (markah === 100) {
+        txtTahap.innerText = "🌟 PEJUANG INTEGRITI CEMERLANG 🌟";
+      } else if (markah >= 60) {
+        txtTahap.innerText = "👍 PEJUANG INTEGRITI BAIK";
+      } else {
+        txtTahap.innerText = "💪 PERLU TINGKATKAN KEFAHAMAN";
+      }
+    }
+
+    function mainSemula() {
+      document.getElementById('skrinKeputusan').classList.add('hidden');
+      document.getElementById('skrinMula').classList.remove('hidden');
+      if (cameraInstance) {
+        try { cameraInstance.stop(); } catch(e){}
+      }
+    }
+  </script>
+</body>
+</html>
